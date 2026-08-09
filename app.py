@@ -24,7 +24,7 @@ except Exception:
 # ------------------------------------------------
 st.set_page_config(page_title="Letterboxd Taste Analyzer", layout="wide")
 st.title("Letterboxd Taste Analyzer")
-st.caption("Unrated watched films are assumed to be 0 stars.")
+st.caption("Unrated watched films are included in viewing totals but excluded from rating-based analysis.")
 
 uploaded = st.file_uploader("Upload Letterboxd ZIP export (recommended)", type=["zip"])
 
@@ -38,9 +38,9 @@ def show_fig(fig):
 
 
 def set_rating_axis(ax, label="Rating"):
-    ax.set_ylim(0, 5)
+    ax.set_ylim(0.5, 5)
     ax.set_ylabel(label)
-    ax.set_yticks(np.arange(0, 5.5, 0.5))
+    ax.set_yticks(np.arange(0.5, 5.5, 0.5))
 
 
 def date_axis_format(ax, dates):
@@ -130,7 +130,7 @@ ratings["Year"] = pd.to_numeric(ratings["Year"], errors="coerce")
 ratings["Rating"] = pd.to_numeric(ratings["Rating"], errors="coerce")
 
 ratings = ratings.dropna(subset=["Date", "Name", "Year", "Letterboxd URI"])
-ratings["Rating"] = ratings["Rating"].fillna(0).clip(0, 5)
+ratings["Rating"] = ratings["Rating"].clip(0, 5)
 
 
 # ------------------------------------------------
@@ -160,8 +160,8 @@ diary["Rating"] = diary["Rating"].where(
     diary["Letterboxd URI"].map(rating_map)
 )
 
-# WATCHED BUT NO RATING → 0
-diary["Rating"] = diary["Rating"].fillna(0).clip(0, 5)
+# Keep unrated watches as NaN so they are excluded from rating-based analysis
+diary["Rating"] = diary["Rating"].clip(0, 5)
 
 df = diary.sort_values("watch_date").reset_index(drop=True)
 
@@ -207,8 +207,8 @@ st.divider()
 # ------------------------------------------------
 # RATING DISTRIBUTION (CENTERED BARS)
 # ------------------------------------------------
-st.subheader("Rating Distribution (source: diary.csv watch list; missing ratings assumed 0)")
-add_table_header("Bars use diary.csv watch entries; Rating is diary Rating if present, else ratings.csv, else 0.")
+st.subheader("Rating Distribution (rated diary entries only)")
+add_table_header("Bars use rated diary entries only. Rating is diary Rating if present, otherwise ratings.csv; unrated films are excluded.")
 
 rating_counts = (
     df["Rating"]
@@ -217,15 +217,15 @@ rating_counts = (
     .sort_index()
 )
 
-all_ratings = np.arange(0, 5.5, 0.5)
+all_ratings = np.arange(0.5, 5.5, 0.5)
 rating_counts = rating_counts.reindex(all_ratings, fill_value=0)
 
 fig, ax = plt.subplots(figsize=(7, 4))
 ax.bar(rating_counts.index, rating_counts.values, width=0.4, align="center")
 ax.set_xticks(all_ratings)
-ax.set_xlabel("Rating (0–5)")
+ax.set_xlabel("Rating (0.5–5)")
 ax.set_ylabel("Count")
-ax.set_title("How you rate films (unrated assumed 0)")
+ax.set_title("How You Rate Films")
 show_fig(fig)
 
 st.dataframe(
@@ -240,21 +240,22 @@ st.divider()
 # ------------------------------------------------
 # ROLLING AVERAGE
 # ------------------------------------------------
-st.subheader("Rolling Rating Average (source: diary.csv watch dates; ratings filled as above)")
-add_table_header("Line uses watch_date from diary.csv. Rolling average uses the filled rating rule.")
+st.subheader("Rolling Rating Average (rated films only)")
+add_table_header("Line uses watch_date from diary.csv. Unrated films are excluded from the rolling rating calculation.")
 
 window = st.slider("Rolling Window (films)", 5, 50, 20, 5)
-df["rolling"] = df["Rating"].rolling(window, min_periods=max(5, window // 4)).mean()
+rated_df = df.dropna(subset=["Rating"]).copy()
+rated_df["rolling"] = rated_df["Rating"].rolling(window, min_periods=max(5, window // 4)).mean()
 
 fig2, ax2 = plt.subplots(figsize=(8, 4))
-ax2.plot(df["watch_date"], df["rolling"], linewidth=2)
+ax2.plot(rated_df["watch_date"], rated_df["rolling"], linewidth=2)
 ax2.set_xlabel("Date")
 ax2.set_title("Rolling Average Rating")
 set_rating_axis(ax2, label="Rolling avg rating")
-date_axis_format(ax2, df["watch_date"])
+date_axis_format(ax2, rated_df["watch_date"])
 show_fig(fig2)
 
-rolling_table = df[["watch_date", "Rating", "rolling"]].copy()
+rolling_table = rated_df[["watch_date", "Rating", "rolling"]].copy()
 rolling_table = rolling_table.rename(columns={"watch_date": "Date"})
 st.dataframe(rolling_table.tail(40), use_container_width=True, height=260)
 
@@ -298,7 +299,7 @@ st.divider()
 # DECADE ANALYSIS (DIARY WATCHES)
 # ------------------------------------------------
 st.subheader("Decade Taste (source: diary.csv watch entries; release decade from Year)")
-add_table_header("Volume = diary.csv entries grouped by release decade. Avg rating uses filled rating rule.")
+add_table_header("Volume = all diary.csv entries grouped by release decade. Avg rating excludes unrated films.")
 
 decade = (
     df.groupby("movie_decade")
@@ -379,7 +380,7 @@ st.divider()
 # ------------------------------------------------
 # MORE VISUALS (DIARY WATCH DATES)
 # ------------------------------------------------
-st.subheader("More Visuals (source: diary.csv watch dates; ratings filled as above)")
+st.subheader("More Visuals (source: diary.csv watch dates; unrated films excluded from rating averages)")
 
 col1, col2 = st.columns(2)
 
@@ -449,7 +450,7 @@ if not SKLEARN_OK:
 else:
     add_table_header(
         "Model trains on diary.csv entries with features derived from watch_date + release Year. "
-        "Target = filled Rating (diary rating -> ratings.csv -> 0)."
+        "Target = Rating (diary rating -> ratings.csv); unrated films are excluded from model training."
     )
 
     # Build modeling frame
@@ -491,10 +492,10 @@ else:
     preds = model.predict(X_test)
 
     # Clip predictions to valid rating scale for display
-    preds_clip = np.clip(preds, 0, 5)
+    preds_clip = np.clip(preds, 0.5, 5)
 
     mae = mean_absolute_error(y_test, preds_clip)
-    rmse = mean_squared_error(y_test, preds_clip, squared=False)
+    rmse = np.sqrt(mean_squared_error(y_test, preds_clip))
     r2 = r2_score(y_test, preds_clip)
 
     m1, m2, m3 = st.columns(3)
@@ -505,12 +506,12 @@ else:
     # Predicted vs actual plot
     fig10, ax10 = plt.subplots(figsize=(7, 5))
     ax10.scatter(y_test, preds_clip, alpha=0.5)
-    ax10.plot([0, 5], [0, 5], linewidth=2)
+    ax10.plot([0.5, 5], [0.5, 5], linewidth=2)
     ax10.set_title("Predicted vs Actual Rating (test set)")
     ax10.set_xlabel("Actual rating")
     ax10.set_ylabel("Predicted rating")
-    ax10.set_xlim(0, 5)
-    ax10.set_ylim(0, 5)
+    ax10.set_xlim(0.5, 5)
+    ax10.set_ylim(0.5, 5)
     show_fig(fig10)
 
     # Show prediction table
@@ -535,4 +536,4 @@ else:
         "then train a better model. That’s where prediction becomes meaningfully strong for a resume project."
     )
 
-    #py -m streamlit run app.py
+    # Run with: py -m streamlit run app.py
