@@ -1,248 +1,281 @@
+# Development History
 
+This document records the development of the Letterboxd Taste Analyzer, including the original implementation, problems identified during review, and improvements made afterward.
 
-That description accurately reflects what your program currently does: it uploads the ZIP through Streamlit, reads and combines the Letterboxd files, and creates the different analyses. :contentReference\[oaicite:0]{index=0} :contentReference\[oaicite:1]{index=1}
+## Initial Idea
 
+The project began as a way to analyze my personal Letterboxd viewing history using Python.
 
+The original goal was to move beyond the basic statistics available on my Letterboxd profile and explore patterns in:
 
-The machine-learning section is also described accurately: five simple derived predictors feed a Ridge regression model with a train/test split and MAE, RMSE, and R² evaluation. :contentReference\[oaicite:2]{index=2}
+- Ratings
+- Viewing frequency
+- Release decades
+- Viewing dates
+- Changes in movie ratings over time
 
+The project later developed into an interactive Streamlit application and included an exploratory machine learning component.
 
-
-I deliberately included the \*\*unrated = 0 limitation\*\* instead of hiding it. Your current code explicitly makes that assumption. :contentReference\[oaicite:3]{index=3} For a student portfolio, identifying a weakness in an earlier implementation and later fixing it is actually useful development history.
-
-
-
-\## 2. Put this in `docs/DEVELOPMENT.md`
-
-
-
-```markdown
-
-\# Development History
-
-
-
-This file documents the development of the Letterboxd Taste Analyzer and explains why earlier project data has been retained in the repository.
-
-
-
-\## Initial Idea
-
-
-
-The project began as a way to analyze my personal Letterboxd history using Python.
-
-
-
-The original goal was to move beyond simply looking at my Letterboxd profile and instead explore patterns in:
-
-
-
-\- Ratings
-
-\- Viewing frequency
-
-\- Release decades
-
-\- Viewing dates
-
-\- Changes in movie ratings over time
-
-
-
-The project later expanded into an interactive Streamlit application and eventually included a basic machine learning component.
-
-
-
-\## Data Version 1
-
-
+## Data Version 1
 
 `data/v1/`
 
-
-
 The first saved Letterboxd export represents an earlier stage of the project.
-
-
 
 It was used while developing the initial data-loading, cleaning, and visualization workflow.
 
+This version is retained rather than being replaced by newer data so that the repository preserves some of the original development material.
 
+## Data Version 2
 
-This version is retained to show the original data available during development rather than replacing all earlier material with the newest export.
+`data/v2/`
 
+The second Letterboxd export contains additional viewing and rating activity.
 
+This updated dataset was used while continuing development and testing of the application.
 
-\## Data Version 2
+Keeping multiple exports helps document the data available at different stages of the project.
 
-
-
-`data/v\_2/`
-
-
-
-The second Letterboxd export was created on February 28, 2026.
-
-
-
-This updated dataset contains additional Letterboxd activity and was used while continuing development and testing of the application.
-
-
-
-Keeping both exports makes it possible to see the data available at different stages of the project.
-
-
-
-\## Application Development
-
-
+## Initial Application
 
 The application developed into a Streamlit dashboard that accepts a Letterboxd ZIP export directly from the user.
 
+The application reads Letterboxd files including:
 
+- `ratings.csv`
+- `diary.csv`
+- `watched.csv`
 
-The application currently includes:
+The dashboard includes:
 
+- Overall viewing statistics
+- Rating distribution
+- Rolling rating averages
+- Monthly viewing activity
+- Release-decade analysis
+- Year-by-month viewing heatmap
+- Day-of-week analysis
+- Movie-age analysis
+- Interactive Streamlit controls
+- Ridge Regression rating prediction
+- Model evaluation
+- Model coefficient analysis
 
+## Original Rating Methodology
 
-\- Data loading directly from ZIP files
+The original version of the application treated watched movies without a recorded rating as a rating of `0`.
 
-\- Data cleaning with pandas
+This kept unrated movies in the same dataframe as rated movies, but it created a methodological problem.
 
-\- Rating summaries
+An unrated movie does not mean that the user gave the movie zero stars.
 
-\- Rating distribution analysis
+As a result, these artificial zero values could affect:
 
-\- Rolling rating averages
+- Average rating
+- Median rating
+- Rating distribution
+- Rolling rating averages
+- Release-decade averages
+- Day-of-week averages
+- Movie-age analysis
+- Machine learning training
 
-\- Monthly viewing-volume analysis
+This issue was preserved in the initial Git commit rather than rewriting the project's history.
 
-\- Release-decade analysis
+## Rating Methodology Revision
 
-\- Year-by-month viewing heatmaps
+A later revision corrected the unrated-film issue.
 
-\- Day-of-week analysis
+Unrated films now remain missing (`NaN`) rather than being converted to zero.
 
-\- Movie-age analysis
+The application separates viewing activity from rating-based analysis.
 
-\- Interactive Streamlit controls
+Unrated films are still included in:
 
-\- Ridge Regression rating prediction
+- Overall watched-film totals
+- Diary-entry totals
+- Monthly viewing activity
+- Viewing heatmaps
+- Release-decade viewing counts
+- Day-of-week viewing counts
 
-\- Model evaluation and coefficient analysis
+Unrated films are excluded from:
 
+- Average rating
+- Median rating
+- Rating distribution
+- Rolling rating averages
+- Release-decade rating averages
+- Day-of-week rating averages
+- Movie-age rating analysis
+- Machine learning training
 
+This allows the application to count a movie as watched without assuming an opinion that the user never recorded.
 
-\## Machine Learning
+## Rating Scale Revision
 
+The original implementation allowed the rating scale to extend from `0` to `5`.
 
+Because Letterboxd's recorded star ratings begin at `0.5`, the rating-based visualizations were updated to use a `0.5–5.0` scale.
 
-A Ridge Regression model was added as an initial attempt to predict personal movie ratings.
+Prediction outputs are also clipped to this valid rating range.
 
+## Rolling Average Revision
 
+The original rolling-average calculation operated on the full diary dataframe after missing ratings had been converted to zero.
 
-The model currently uses features derived from the Letterboxd data itself:
+After the rating methodology was corrected, a separate dataframe containing only rated films was created for the rolling calculation.
 
+This means the rolling window now represents changes across actual ratings rather than being influenced by unrated watches.
 
+## Machine Learning
 
-\- Watch month
+A Ridge Regression model was added as an initial experiment in predicting personal movie ratings.
 
-\- Watch day of week
+The current model uses:
 
-\- Release year
+- Watch month
+- Watch day of week
+- Release year
+- Movie age at the time of viewing
+- Days since the previous movie watched
 
-\- Movie age when watched
+The data is divided into training and testing sets.
 
-\- Time since the previous movie was watched
+The model is evaluated using:
 
+- Mean Absolute Error (MAE)
+- Root Mean Squared Error (RMSE)
+- R²
 
+The application also displays:
 
-This was intentionally kept relatively simple and interpretable.
+- Predicted vs. actual ratings
+- Individual test predictions
+- Ridge Regression coefficients
 
+## Machine Learning Revision
 
+The original model included unrated films because those observations had been converted to zero.
 
-The model serves primarily as an initial machine learning experiment rather than a finished recommendation system.
+After correcting the rating methodology, unrated movies were removed from the modeling dataset.
 
+The model now trains only on movies with actual recorded ratings.
 
+During testing, the RMSE calculation also produced a compatibility error with the installed version of scikit-learn.
 
-\## Known Methodology Issue
+The original calculation used:
 
+`mean_squared_error(..., squared=False)`
 
+This was replaced with an explicit square-root calculation:
 
-The current application converts watched movies without a recorded rating to a rating of `0`.
+`np.sqrt(mean_squared_error(...))`
 
+This produces RMSE without depending on the unsupported argument.
 
+## Model Performance
 
-This allowed unrated movies to remain in the same dataframe as rated movies, but it introduces an important limitation.
+The current model should be treated as an exploratory baseline rather than a finished prediction system.
 
+During testing, the model produced approximately:
 
+- MAE: 0.79
+- RMSE: 0.97
+- R²: -0.01
 
-An unrated movie does not necessarily represent a zero-star opinion.
+The negative R² indicates that the current features have very limited ability to explain personal movie ratings.
 
+This result is useful because it identifies an important limitation of the current feature set.
 
+Variables such as watch date and release year contain relatively little information about whether I will actually like a movie.
 
-As a result, these artificial zero values can influence:
+More relevant movie characteristics will likely be necessary for a stronger model.
 
+## Compatibility and Maintenance
 
+After testing the application with the current package environment, several deprecated or changing library behaviors were identified.
 
-\- Average rating
+Streamlit's:
 
-\- Median rating
+`use_container_width=True`
 
-\- Rolling averages
+was replaced with:
 
-\- Decade rating averages
+`width="stretch"`
 
-\- Day-of-week rating averages
+throughout the application.
 
-\- Machine learning training
+The movie-age grouping operation was also updated to explicitly use:
 
+`observed=False`
 
+to preserve the existing pandas grouping behavior and remove a future compatibility warning.
 
-A future revision should preserve unrated films for viewing-volume analysis while excluding them from calculations that require an actual rating.
+These changes do not substantially alter the analysis but keep the application compatible with newer library versions.
 
+## Current Project State
 
+The current application:
 
-This issue is retained in the documented development history rather than being hidden because correcting it represents a meaningful methodological improvement to the project.
+- Accepts a Letterboxd ZIP export
+- Cleans and combines viewing and rating information
+- Separates unrated viewing activity from rated-film analysis
+- Produces multiple exploratory visualizations
+- Provides time-based viewing analysis
+- Examines ratings by several derived features
+- Includes an exploratory Ridge Regression model
+- Reports model evaluation metrics
+- Runs without the compatibility errors identified during testing
 
+## Current Limitations
 
+The largest limitation is the information available to the prediction model.
 
-\## Planned Development
+The current features are primarily based on viewing dates and movie release year rather than the actual characteristics of each movie.
 
+The project currently does not include features such as:
 
+- Genre
+- Director
+- Cast
+- Runtime
+- Language
+- Country
+- Production information
 
-The next major development steps are:
+Because of this, the prediction model should not be interpreted as a strong recommendation system.
 
+The application also depends on the current structure of Letterboxd's exported CSV files.
 
+## Planned Development
 
-1\. Separate rated and unrated movie analysis.
+Potential future development includes:
 
-2\. Improve data validation.
+1. Add external movie metadata.
+2. Analyze ratings by genre.
+3. Analyze ratings by director.
+4. Analyze ratings by actor or cast.
+5. Add runtime and other movie characteristics.
+6. Compare Ridge Regression with other machine learning models.
+7. Improve feature engineering.
+8. Evaluate whether richer features improve prediction performance.
+9. Explore personalized movie recommendations.
+10. Improve the Streamlit dashboard presentation.
+11. Potentially deploy the application publicly.
 
-3\. Add movie metadata such as genre and director.
+## Repository Development
 
-4\. Evaluate stronger predictive models.
+The Git history is intentionally used to document meaningful stages of the project.
 
-5\. Potentially create a recommendation system.
+Major stages currently include:
 
-6\. Improve the Streamlit interface.
+1. Initial Letterboxd Taste Analyzer.
+2. Correction of unrated-film handling and rating methodology.
+3. Rating-prediction compatibility fix.
+4. Streamlit and pandas syntax updates.
+5. README and project-documentation improvements.
 
-7\. Consider deploying the application publicly.
+The goal is not to make the repository appear as though the project was correct and polished from the beginning.
 
-
-
-\## Repository Philosophy
-
-
-
-This repository intentionally preserves meaningful stages of development.
-
-
-
-Generated files such as the Python virtual environment are excluded because they do not represent original project work and can be recreated from `requirements.txt`.
-
-
-
-Data snapshots, source code, documentation, and future revisions are retained when they help show how the project developed.
-
+Instead, the repository preserves the process of identifying problems, testing the application, correcting methodology, maintaining compatibility, and improving documentation.
