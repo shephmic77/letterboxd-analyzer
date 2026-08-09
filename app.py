@@ -34,7 +34,7 @@ uploaded = st.file_uploader("Upload Letterboxd ZIP export (recommended)", type=[
 # ------------------------------------------------
 def show_fig(fig):
     fig.tight_layout()
-    st.pyplot(fig, use_container_width=True)
+    st.pyplot(fig, width="stretch")
 
 
 def set_rating_axis(ax, label="Rating"):
@@ -230,7 +230,7 @@ show_fig(fig)
 
 st.dataframe(
     pd.DataFrame({"Rating": rating_counts.index, "Count": rating_counts.values}),
-    use_container_width=True,
+    width="stretch",
     height=260
 )
 
@@ -257,7 +257,7 @@ show_fig(fig2)
 
 rolling_table = rated_df[["watch_date", "Rating", "rolling"]].copy()
 rolling_table = rolling_table.rename(columns={"watch_date": "Date"})
-st.dataframe(rolling_table.tail(40), use_container_width=True, height=260)
+st.dataframe(rolling_table.tail(40), width="stretch", height=260)
 
 st.divider()
 
@@ -290,7 +290,7 @@ ax3.set_title("Films Watched per Month (Diary)")
 date_axis_format(ax3, monthly["Month"])
 show_fig(fig3)
 
-st.dataframe(monthly.rename(columns={"count": "Watched (Diary)"}), use_container_width=True, height=260)
+st.dataframe(monthly.rename(columns={"count": "Watched (Diary)"}), width="stretch", height=260)
 
 st.divider()
 
@@ -328,7 +328,7 @@ with colB:
 
 st.dataframe(
     decade.rename(columns={"movie_decade": "Release decade", "count": "Watched (Diary)", "avg_rating": "Avg rating"}),
-    use_container_width=True,
+    width="stretch",
     height=260
 )
 
@@ -372,7 +372,7 @@ show_fig(fig6)
 pivot_table = pivot.copy()
 pivot_table.columns = [pd.to_datetime(m, format="%m").strftime("%b") for m in pivot_table.columns]
 pivot_table = pivot_table.reset_index().rename(columns={"year": "Year"})
-st.dataframe(pivot_table, use_container_width=True, height=320)
+st.dataframe(pivot_table, width="stretch", height=320)
 
 st.divider()
 
@@ -402,7 +402,7 @@ with col1:
     set_rating_axis(ax7, label="Average rating")
     show_fig(fig7)
 
-    st.dataframe(dow.rename(columns={"watch_dow_name": "Day", "count": "Watched (Diary)", "avg_rating": "Avg rating"}), use_container_width=True, height=260)
+    st.dataframe(dow.rename(columns={"watch_dow_name": "Day", "count": "Watched (Diary)", "avg_rating": "Avg rating"}), width="stretch", height=260)
 
 # Volume by day-of-week
 with col2:
@@ -425,7 +425,7 @@ bins = [-2, 0, 1, 2, 3, 5, 10, 20, 30, 40, 60, 120]
 labels = ["<=0", "1", "2", "3", "4-5", "6-10", "11-20", "21-30", "31-40", "41-60", "61+"]
 age["age_bin"] = pd.cut(age["movie_age_at_watch"], bins=bins, labels=labels, include_lowest=True)
 
-age_bin = age.groupby("age_bin").agg(avg_rating=("Rating", "mean"), count=("Rating", "size")).reset_index()
+age_bin = age.groupby("age_bin", observed=False).agg(avg_rating=("Rating", "mean"), count=("Rating", "size")).reset_index()
 
 fig9, ax9 = plt.subplots(figsize=(9, 4))
 ax9.scatter(age["movie_age_at_watch"], age["Rating"], alpha=0.25)
@@ -435,7 +435,7 @@ ax9.set_xlabel("Movie age at watch (years) — points; binned avg shown as line"
 set_rating_axis(ax9, label="Rating")
 show_fig(fig9)
 
-st.dataframe(age_bin.rename(columns={"age_bin": "Age bucket", "count": "Films", "avg_rating": "Avg rating"}), use_container_width=True, height=260)
+st.dataframe(age_bin.rename(columns={"age_bin": "Age bucket", "count": "Films", "avg_rating": "Avg rating"}), width="stretch", height=260)
 
 st.divider()
 
@@ -519,7 +519,7 @@ else:
     pred_table["actual_rating"] = y_test.values
     pred_table["pred_rating"] = preds_clip
     pred_table = pred_table.sort_values("actual_rating", ascending=False).head(40)
-    st.dataframe(pred_table, use_container_width=True, height=320)
+    st.dataframe(pred_table, width="stretch", height=320)
 
     # Coefficients (interpretability)
     coef = model.named_steps["model"].coef_
@@ -529,7 +529,7 @@ else:
     }).sort_values("coefficient", ascending=False)
 
     st.markdown("**Model coefficients (Ridge):** higher coefficient → tends to increase predicted rating (all else equal).")
-    st.dataframe(coef_table, use_container_width=True, height=260)
+    st.dataframe(coef_table, width="stretch", height=260)
 
     st.markdown(
         "**Next upgrade (recommended):** add genre / director / cast features by scraping public metadata (TMDB/OMDb) or Letterboxd pages, "
